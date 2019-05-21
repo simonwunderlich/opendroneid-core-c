@@ -7,3 +7,4 @@ cmake_minimum_required(VERSION 2.6.3)
 
 add_subdirectory(libopendroneid)
 add_subdirectory(test)
+add_subdirectory(wifi)
