@@ -182,6 +182,135 @@ static void drone_adopt_gps_data(ODID_UAS_Data *drone,
 }
 
 /**
+ * drone_export_gps_data - adopt GPS data into the drone status info
+ * @gpsdata: gps data from gpsd
+ * @drone: general drone status information
+ */
+void drone_export_gps_data(ODID_UAS_Data *UAS_Data, char* filename)
+{
+	FILE *fp;
+
+	/* build json object from UAS_Data */
+	/*
+	{
+		"Version": "x.x",
+		"Response": {
+			"BasicID": {
+				"UASType": <>,
+				"IDType": <>,
+				"UASID": <>
+			},
+			"Location": {
+				"Status": <>,
+				"SpeedNS": <>,
+				"SpeedEW": <>,
+				"SpeedVertical": <>,
+				"Latitude": <>,
+				"Longitude": <>,
+				"AltitudeBaro": <>,
+				"AltitudeGeo": <>,
+				"HeightAboveTakeoff": <>,
+				"HAccuracy": <>,
+				"VAccuracy": <>,
+				"SpAccuracy": <>,
+				"TSAccuracy": <>,
+				"TimeStamp": <>
+			},
+			"Authentication": {
+				"AuthType": <>,
+				"AuthToken": <>
+			},
+			"SelfID": {
+				"Name": <>,
+				"Description": <>
+			},
+			"Operator": {
+				"LocationSource": <>,
+				"Latitude": <>,
+				"Longitude": <>,
+				"GroupCount": <>,
+				"GroupRadius": <>,
+				"GroupCeiling": <>
+			}
+		}
+	}
+	*/
+
+	fp = fopen(filename, "w");
+	if (fp != NULL) {
+		fprintf(fp, "{\n\t\"Version\": \"0.0\",\n\t\"Response\": {\n");
+
+		fprintf(fp, "\t\t\"BasicID\": {\n");
+		fprintf(fp, "\t\t\t\"UASType\": %i,\n", UAS_Data->BasicID.UASType);
+		fprintf(fp, "\t\t\t\"IDType\": %i,\n", UAS_Data->BasicID.IDType);
+		fprintf(fp, "\t\t\t\"UASID\": %s\n", UAS_Data->BasicID.UASID);
+		fprintf(fp, "\t\t},\n");
+
+		fprintf(fp, "\t\t\"Location\": {\n");
+		fprintf(fp, "\t\t\t\"Status\": %i,\n", UAS_Data->Location);
+		fprintf(fp, "\t\t\t\"SpeedNS\": %f,\n", UAS_Data->Location.SpeedNS);
+		fprintf(fp, "\t\t\t\"SpeedEW\": %f,\n", UAS_Data->Location.SpeedEW);
+		fprintf(fp, "\t\t\t\"SpeedVertical\": %f,\n", UAS_Data->Location.SpeedVertical);
+		fprintf(fp, "\t\t\t\"Latitude\": %f,\n", UAS_Data->Location.Latitude);
+		fprintf(fp, "\t\t\t\"Longitude\": %f,\n", UAS_Data->Location.Longitude);
+		fprintf(fp, "\t\t\t\"AltitudeBaro\": %f,\n", UAS_Data->Location.AltitudeBaro);
+		fprintf(fp, "\t\t\t\"AltitudeGeo\": %f,\n", UAS_Data->Location.AltitudeGeo);
+		fprintf(fp, "\t\t\t\"HeightAboveTakeoff\": %f,\n", UAS_Data->Location.HeightAboveTakeoff);
+		fprintf(fp, "\t\t\t\"HorizAccuracy\": %f,\n", UAS_Data->Location.HorizAccuracy);
+		fprintf(fp, "\t\t\t\"VertAccuracy\": %f,\n", UAS_Data->Location.VertAccuracy);
+		fprintf(fp, "\t\t\t\"SpeedAccuracy\": %f,\n", UAS_Data->Location.SpeedAccuracy);
+		fprintf(fp, "\t\t\t\"TSAccuracy\": %f,\n", UAS_Data->Location.TSAccuracy);
+		fprintf(fp, "\t\t\t\"TimeStamp\": %f\n", UAS_Data->Location.TimeStamp);
+		fprintf(fp, "\t\t},\n");
+
+		fprintf(fp, "\t\t\"Authentication\": {\n");
+		fprintf(fp, "\t\t\t\"AuthType\": %i,\n", UAS_Data->Auth.AuthType);
+		fprintf(fp, "\t\t\t\"AuthToken\": %s\n", UAS_Data->Auth.AuthData);
+		fprintf(fp, "\t\t},\n");
+
+		fprintf(fp, "\t\t\"SelfID\": {\n");
+		fprintf(fp, "\t\t\t\"Name\": \"string\",\n");
+		fprintf(fp, "\t\t\t\"Description\": %s\n", UAS_Data->SelfID.Desc);
+		fprintf(fp, "\t\t},\n");
+
+		fprintf(fp, "\t\t\"Operator\": {\n");
+		fprintf(fp, "\t\t\t\"LocationSource\": %i,\n", UAS_Data->System.LocationSource);
+		fprintf(fp, "\t\t\t\"Latitude\": %f,\n", UAS_Data->System.Latitude);
+		fprintf(fp, "\t\t\t\"Longitude\": %f,\n", UAS_Data->System.Longitude);
+		fprintf(fp, "\t\t\t\"GroupCount\": %i,\n", UAS_Data->System.GroupCount);
+		fprintf(fp, "\t\t\t\"GroupRadius\": %i,\n", UAS_Data->System.GroupRadius);
+		fprintf(fp, "\t\t\t\"GroupCeiling\": %f\n", UAS_Data->System.GroupCeiling);
+		fprintf(fp, "\t\t}\n");
+
+		fprintf(fp, "\t}\n}");
+		fclose(fp);
+	}
+
+	// printBasicID_data(UAS_Data->BasicID);
+	// printLocation_data(UAS_Data->Location);
+	// printAuth_data(UAS_Data->Auth);
+	// printSelfID_data(UAS_Data->SelfID);
+	// printSystem_data(UAS_Data->System);
+}
+
+/**
+ * drone_test_receive_data - receive and process drone information
+ */
+static void drone_test_receive_data(uint8_t *buf, size_t buf_size, char *mac)
+{
+	ODID_UAS_Data rcvd;
+	int ret;
+	char filename[] = "rcvd_drone.json";
+
+	ret = odid_wifi_receive_message_pack_nan_action_frame(&rcvd, mac, buf, buf_size);
+	if (ret < 0) {
+		return;
+	}
+
+	drone_export_gps_data(&rcvd, filename);
+}
+
+/**
  * drone_send_data - send information about the drone out
  * @drone: general drone status information
  */
@@ -198,16 +327,21 @@ static void drone_send_data(ODID_UAS_Data *drone, struct global *global, struct 
 	{
 		int i;
 
-		printf("frame: ");
+		printf("frame (len %i):\n\t", ret);
 		for (i = 0; i < ret; i++) {
 			printf("%02x ", frame_buf[i]);
 			if (i % 4 == 3)
 				printf(" ");
 
 			if (i % 16 == 15)
-				printf("\n");
+				printf("\n\t");
 		}
+		printf("\n");
 	}
+
+	char filename[] = "drone.json";
+	drone_export_gps_data(drone, filename);
+	drone_test_receive_data(frame_buf, (uint8_t)ret, global->mac);
 
 	ret = send_nl80211_action(nl_sock, if_index, frame_buf, ret);
 	if (ret < 0) {
@@ -260,7 +394,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* TODO acquire dynamically */
-	if (get_device_mac("wlan0", global.mac, &if_index) < 0) {
+	if (get_device_mac("wlp2s0", global.mac, &if_index) < 0) {
 		fprintf(stderr, "%s: Couldn't acquire wlan0 address\n", argv[0]);
 
 		return -1;
