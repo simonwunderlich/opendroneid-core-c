@@ -60,7 +60,7 @@ int odid_message_encode_pack(ODID_UAS_Data *UAS_Data, void *pack, size_t buflen)
 
 int odid_wifi_build_message_pack_nan_action_frame(ODID_UAS_Data *UAS_Data, char *mac,
 						  uint8_t send_counter,
-				     		  uint8_t *buf, size_t buf_size)
+						  uint8_t *buf, size_t buf_size)
 {
 	uint8_t broadcast_addr[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 	/* "org.opendroneid.remoteid" hash */
@@ -131,4 +131,70 @@ int odid_wifi_build_message_pack_nan_action_frame(ODID_UAS_Data *UAS_Data, char 
 	nsda->length = sizeof(*nsda) + nsda->service_info_length;
 
 	return len;
+}
+
+int odid_message_decode_pack(ODID_UAS_Data *outPack, uint8_t *pack, size_t buflen)
+{
+	ODID_Message_Pack *inPack;
+
+	if (sizeof(*inPack) > buflen)
+		return -ENOMEM;
+
+	inPack = (ODID_Message_Pack *) pack;
+	if (inPack->MsgPackSize != 5)
+		return -1;
+
+	decodeBasicIDMessage(&outPack->BasicID, (void *)&inPack->Messages[0]);
+	decodeLocationMessage(&outPack->Location, (void *)&inPack->Messages[1]);
+	decodeAuthMessage(&outPack->Auth, (void *)&inPack->Messages[2]);
+	decodeSelfIDMessage(&outPack->SelfID, (void *)&inPack->Messages[3]);
+	decodeSystemMessage(&outPack->System, (void *)&inPack->Messages[4]);
+
+	return 0;
+}
+
+int odid_wifi_receive_message_pack_nan_action_frame(ODID_UAS_Data *UAS_Data,
+						    char *mac, uint8_t *buf, size_t buf_size)
+{
+	struct ieee80211_mgmt *mgmt;
+	struct nan_service_discovery *nsd;
+	struct nan_service_descriptor_attribute *nsda;
+	struct ODID_service_info *si;
+	uint8_t service_id[6] = { 0x88, 0x69, 0x19, 0x9D, 0x92, 0x09 };
+	int ret, len;
+
+	/* basic header size check */
+	if ((int)(sizeof(*mgmt) + sizeof(*nsd) + sizeof(*nsda) + sizeof(*si)) > (int)buf_size)
+		return -1;
+
+	len = 0;
+	mgmt = (struct ieee80211_mgmt *)(buf + len);
+	/* check for correct sender address */
+	if (memcmp(mgmt->sa, mac, sizeof(mgmt->sa)) != 0) {
+		return -1;
+	}
+	len += sizeof(*mgmt);
+
+	nsd = (struct nan_service_discovery *)(buf + len);
+	len += sizeof(*nsd);
+
+	nsda = (struct nan_service_descriptor_attribute *)(buf + len);
+	if (memcmp(nsda->service_id, service_id, sizeof(service_id)) != 0) {
+		return -1;
+	}
+	len += sizeof(*nsda);
+
+	si = (struct ODID_service_info *)(buf + len);
+	/* check correct odid message pack length */
+	if (len + nsda->service_info_length != buf_size) {
+		return -1;
+	}
+	len += sizeof(*si);
+
+	ret = odid_message_decode_pack(UAS_Data, buf + len, buf_size - len);
+	if (ret < 0) {
+		return -1;
+	}
+
+	return 0;
 }
