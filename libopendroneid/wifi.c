@@ -160,35 +160,71 @@ int odid_wifi_receive_message_pack_nan_action_frame(ODID_UAS_Data *UAS_Data,
 	struct nan_service_discovery *nsd;
 	struct nan_service_descriptor_attribute *nsda;
 	struct ODID_service_info *si;
+	uint16_t mgmt_frame_control = cpu_to_le16(IEEE80211_FTYPE_MGMT | IEEE80211_STYPE_ACTION);
+	uint8_t nsd_category = 0x04;
+	uint8_t nsd_action_code = 0x09;
+	uint8_t nsd_oui_type = 0x13;
+	uint8_t wifi_alliance_oui[3] = { 0x50, 0x6F, 0x9A };
+	uint8_t nsda_attribute_id = 0x3;
 	uint8_t service_id[6] = { 0x88, 0x69, 0x19, 0x9D, 0x92, 0x09 };
+	uint8_t nsda_instance_id = 0x01;
+	uint8_t nsda_service_control = 0x10;
 	int ret, len;
+
+
+	/* action frame, action frame type; error code: EINVAL */
 
 	/* basic header size check */
 	if ((int)(sizeof(*mgmt) + sizeof(*nsd) + sizeof(*nsda) + sizeof(*si)) > (int)buf_size)
-		return -1;
-
+		return -EINVAL;
 	len = 0;
+
+	/* check for frame type and correct sender address */
 	mgmt = (struct ieee80211_mgmt *)(buf + len);
-	/* check for correct sender address */
+	if (memcmp(&mgmt->frame_control, &mgmt_frame_control, sizeof(mgmt_frame_control))) {
+		return -EINVAL;
+	}
 	if (memcmp(mgmt->sa, mac, sizeof(mgmt->sa)) != 0) {
-		return -1;
+		return -EINVAL;
 	}
 	len += sizeof(*mgmt);
 
+	/* check NAN service discovery frame fields */
 	nsd = (struct nan_service_discovery *)(buf + len);
+	if (memcmp(&nsd->category, &nsd_category, sizeof(nsd_category)) != 0) {
+		return -EINVAL;
+	}
+	if (memcmp(&nsd->action_code, &nsd_action_code, sizeof(nsd_action_code)) != 0) {
+		return -EINVAL;
+	}
+	if (memcmp(&nsd->oui_type, &nsd_oui_type, sizeof(nsd_oui_type)) != 0) {
+		return -EINVAL;
+	}
+	if (memcmp(nsd->oui, wifi_alliance_oui, sizeof(wifi_alliance_oui)) != 0) {
+		return -EINVAL;
+	}
 	len += sizeof(*nsd);
 
+	/* check NAN service descriptor attribute fields */
 	nsda = (struct nan_service_descriptor_attribute *)(buf + len);
+	if (memcmp(&nsda->attribute_id, &nsda_attribute_id, sizeof(nsda_attribute_id)) != 0) {
+		return -EINVAL;
+	}
 	if (memcmp(nsda->service_id, service_id, sizeof(service_id)) != 0) {
-		return -1;
+		return -EINVAL;
+	}
+	if (memcmp(&nsda->instance_id, &nsda_instance_id, sizeof(nsda_instance_id)) != 0) {
+		return -EINVAL;
+	}
+	if (memcmp(&nsda->service_control, &nsda_service_control, sizeof(nsda_service_control)) != 0) {
+		return -EINVAL;
+	}
+	if (len + sizeof(*nsda) + nsda->service_info_length != buf_size) {
+		return -EINVAL;
 	}
 	len += sizeof(*nsda);
 
 	si = (struct ODID_service_info *)(buf + len);
-	/* check correct odid message pack length */
-	if (len + nsda->service_info_length != buf_size) {
-		return -1;
-	}
 	len += sizeof(*si);
 
 	ret = odid_message_decode_pack(UAS_Data, buf + len, buf_size - len);
