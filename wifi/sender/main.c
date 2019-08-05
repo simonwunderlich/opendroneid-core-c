@@ -140,6 +140,8 @@ int read_arguments(int argc, char *argv[], ODID_UAS_Data *drone, struct global *
 static void drone_adopt_gps_data(ODID_UAS_Data *drone,
 				 struct gps_data_t *gpsdata)
 {
+	uint64_t time_in_tenth;
+
 	/*
 	*	ALL READOUTS FROM GPSD
 	*/
@@ -164,8 +166,9 @@ static void drone_adopt_gps_data(ODID_UAS_Data *drone,
 	drone->Location.SpeedAccuracy = gpsdata->fix.epc;
 
 	/* Time */
-	drone->Location.TimeStamp = gpsdata->fix.time;
-	drone->Location.TSAccuracy = gpsdata->fix.ept;
+	time_in_tenth = gpsdata->fix.time * 10;
+	drone->Location.TimeStamp = (float)((time_in_tenth % 36000) / 10);
+	drone->Location.TSAccuracy = (float)gpsdata->fix.ept;
 
 	printf("drone:\n\t"
 		"TimeStamp: %f, time since last hour (100ms): %ld, TSAccuracy: %d\n\t"
@@ -182,7 +185,7 @@ static void drone_adopt_gps_data(ODID_UAS_Data *drone,
  * @gpsdata: gps data from gpsd
  * @drone: general drone status information
  */
-void drone_export_gps_data(ODID_UAS_Data *UAS_Data, char* filename)
+void drone_export_gps_data(ODID_UAS_Data *UAS_Data, char *filename)
 {
 	FILE *fp;
 
@@ -243,7 +246,7 @@ void drone_export_gps_data(ODID_UAS_Data *UAS_Data, char* filename)
 		fprintf(fp, "\t\t},\n");
 
 		fprintf(fp, "\t\t\"Location\": {\n");
-		fprintf(fp, "\t\t\t\"Status\": %i,\n", UAS_Data->Location);
+		fprintf(fp, "\t\t\t\"Status\": %d,\n", (int)UAS_Data->Location.Status);
 		fprintf(fp, "\t\t\t\"SpeedNS\": %f,\n", UAS_Data->Location.SpeedNS);
 		fprintf(fp, "\t\t\t\"SpeedEW\": %f,\n", UAS_Data->Location.SpeedEW);
 		fprintf(fp, "\t\t\t\"SpeedVertical\": %f,\n", UAS_Data->Location.SpeedVertical);
@@ -314,6 +317,9 @@ static void drone_send_data(ODID_UAS_Data *drone, struct global *global, struct 
 {
 	uint8_t frame_buf[1024];
 	int ret;
+	char filename[] = "drone.json";
+
+	drone_export_gps_data(drone, filename);
 
 	ret = odid_wifi_build_message_pack_nan_action_frame(drone, global->mac, global->send_counter++, frame_buf, sizeof(frame_buf));
 	if (ret < 0) {
@@ -335,8 +341,6 @@ static void drone_send_data(ODID_UAS_Data *drone, struct global *global, struct 
 		printf("\n");
 	}
 
-	char filename[] = "drone.json";
-	drone_export_gps_data(drone, filename);
 	drone_test_receive_data(frame_buf, (uint8_t)ret, global->mac);
 
 	ret = send_nl80211_action(nl_sock, if_index, frame_buf, ret);
