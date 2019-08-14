@@ -195,20 +195,20 @@ void drone_export_gps_data(ODID_UAS_Data *UAS_Data, char *filename)
 		"Version": "x.x",
 		"Response": {
 			"BasicID": {
-				"UASType": <>,
+				"UAType": <>,
 				"IDType": <>,
 				"UASID": <>
 			},
 			"Location": {
 				"Status": <>,
-				"SpeedNS": <>,
-				"SpeedEW": <>,
+				"Direction": <>,
+				"SpeedHorizontal": <>,
 				"SpeedVertical": <>,
 				"Latitude": <>,
 				"Longitude": <>,
 				"AltitudeBaro": <>,
 				"AltitudeGeo": <>,
-				"HeightAboveTakeoff": <>,
+				"Height": <>,
 				"HAccuracy": <>,
 				"VAccuracy": <>,
 				"SpAccuracy": <>,
@@ -240,25 +240,25 @@ void drone_export_gps_data(ODID_UAS_Data *UAS_Data, char *filename)
 		fprintf(fp, "{\n\t\"Version\": \"0.0\",\n\t\"Response\": {\n");
 
 		fprintf(fp, "\t\t\"BasicID\": {\n");
-		fprintf(fp, "\t\t\t\"UASType\": %i,\n", UAS_Data->BasicID.UASType);
+		fprintf(fp, "\t\t\t\"UAType\": %i,\n", UAS_Data->BasicID.UAType);
 		fprintf(fp, "\t\t\t\"IDType\": %i,\n", UAS_Data->BasicID.IDType);
 		fprintf(fp, "\t\t\t\"UASID\": %s\n", UAS_Data->BasicID.UASID);
 		fprintf(fp, "\t\t},\n");
 
 		fprintf(fp, "\t\t\"Location\": {\n");
 		fprintf(fp, "\t\t\t\"Status\": %d,\n", (int)UAS_Data->Location.Status);
-		fprintf(fp, "\t\t\t\"SpeedNS\": %f,\n", UAS_Data->Location.SpeedNS);
-		fprintf(fp, "\t\t\t\"SpeedEW\": %f,\n", UAS_Data->Location.SpeedEW);
+		fprintf(fp, "\t\t\t\"Direction\": %f,\n", UAS_Data->Location.Direction);
+		fprintf(fp, "\t\t\t\"SpeedHorizontal\": %f,\n", UAS_Data->Location.SpeedHorizontal);
 		fprintf(fp, "\t\t\t\"SpeedVertical\": %f,\n", UAS_Data->Location.SpeedVertical);
 		fprintf(fp, "\t\t\t\"Latitude\": %f,\n", UAS_Data->Location.Latitude);
 		fprintf(fp, "\t\t\t\"Longitude\": %f,\n", UAS_Data->Location.Longitude);
 		fprintf(fp, "\t\t\t\"AltitudeBaro\": %f,\n", UAS_Data->Location.AltitudeBaro);
 		fprintf(fp, "\t\t\t\"AltitudeGeo\": %f,\n", UAS_Data->Location.AltitudeGeo);
-		fprintf(fp, "\t\t\t\"HeightAboveTakeoff\": %f,\n", UAS_Data->Location.HeightAboveTakeoff);
-		fprintf(fp, "\t\t\t\"HorizAccuracy\": %f,\n", UAS_Data->Location.HorizAccuracy);
-		fprintf(fp, "\t\t\t\"VertAccuracy\": %f,\n", UAS_Data->Location.VertAccuracy);
-		fprintf(fp, "\t\t\t\"SpeedAccuracy\": %f,\n", UAS_Data->Location.SpeedAccuracy);
-		fprintf(fp, "\t\t\t\"TSAccuracy\": %f,\n", UAS_Data->Location.TSAccuracy);
+		fprintf(fp, "\t\t\t\"Height\": %f,\n", UAS_Data->Location.Height);
+		fprintf(fp, "\t\t\t\"HorizAccuracy\": %d,\n", UAS_Data->Location.HorizAccuracy);
+		fprintf(fp, "\t\t\t\"VertAccuracy\": %d,\n", UAS_Data->Location.VertAccuracy);
+		fprintf(fp, "\t\t\t\"SpeedAccuracy\": %d,\n", UAS_Data->Location.SpeedAccuracy);
+		fprintf(fp, "\t\t\t\"TSAccuracy\": %d,\n", UAS_Data->Location.TSAccuracy);
 		fprintf(fp, "\t\t\t\"TimeStamp\": %f\n", UAS_Data->Location.TimeStamp);
 		fprintf(fp, "\t\t},\n");
 
@@ -274,8 +274,8 @@ void drone_export_gps_data(ODID_UAS_Data *UAS_Data, char *filename)
 
 		fprintf(fp, "\t\t\"Operator\": {\n");
 		fprintf(fp, "\t\t\t\"LocationSource\": %i,\n", UAS_Data->System.LocationSource);
-		fprintf(fp, "\t\t\t\"Latitude\": %f,\n", UAS_Data->System.Latitude);
-		fprintf(fp, "\t\t\t\"Longitude\": %f,\n", UAS_Data->System.Longitude);
+		fprintf(fp, "\t\t\t\"remotePilotLatitude\": %f,\n", UAS_Data->System.remotePilotLatitude);
+		fprintf(fp, "\t\t\t\"remotePilotLongitude\": %f,\n", UAS_Data->System.remotePilotLongitude);
 		fprintf(fp, "\t\t\t\"GroupCount\": %i,\n", UAS_Data->System.GroupCount);
 		fprintf(fp, "\t\t\t\"GroupRadius\": %i,\n", UAS_Data->System.GroupRadius);
 		fprintf(fp, "\t\t\t\"GroupCeiling\": %f\n", UAS_Data->System.GroupCeiling);
