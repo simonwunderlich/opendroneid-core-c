@@ -33,12 +33,17 @@ struct global {
 	char port[16];
 	char mac[6];
 	uint8_t send_counter;
+	int refresh_rate;
 };
 
 void usage(char *name)
 {
-	/* TODO */
 	fprintf(stderr,"%s\n", name);
+	fprintf(stderr,"\t-h\tGPSD Host\n");
+	fprintf(stderr,"\t-p\tGPSD Port\n");
+	fprintf(stderr,"\t-i\tDrone ID (string)\n");
+	fprintf(stderr,"\t-t\tDrone type (number)\n");
+	fprintf(stderr,"\t-r\tRefresh rate of beacon sends, in seconds\n");
 }
 
 static int nl80211_id = -1;
@@ -113,17 +118,38 @@ int read_arguments(int argc, char *argv[], ODID_UAS_Data *drone, struct global *
 {
 	int opt;
 
-	strncpy(drone->BasicID.UASID, "12345678901234567890", sizeof(drone->BasicID.UASID));
-	drone->BasicID.IDType = ODID_IDTYPE_SERIAL_NUMBER;
-	drone->BasicID.UAType = ODID_UATYPE_FREE_BALLOON; /* balloon */
-
 	strncpy(global->server, "127.0.0.1", sizeof(global->server));
 	strncpy(global->port, (char *)DEFAULT_GPSD_PORT, sizeof(global->port));
+	strncpy(drone->BasicID.UASID, "1", sizeof(drone->BasicID.UASID));
+	drone->BasicID.IDType = ODID_IDTYPE_SERIAL_NUMBER;
+	drone->BasicID.UAType = ODID_UATYPE_FREE_BALLOON; /* balloon */
+	global->refresh_rate = 1;
 
-	while((opt = getopt(argc, argv, ":p:")) != -1) {
+	while((opt = getopt(argc, argv, "hp:H:i:t:r:")) != -1) {
 		switch (opt) {
-			case 'p':
-				strncpy(global->port, optarg, sizeof(global->port));
+		case 'h':
+			usage(argv[0]);
+			exit(0);
+			break;
+		case 'p':
+			strncpy(global->port, optarg, sizeof(global->port));
+			break;
+		case 'H':
+			strncpy(global->server, optarg, sizeof(global->server));
+			break;
+		case 'i':
+			strncpy(drone->BasicID.UASID, optarg, sizeof(drone->BasicID.UASID));
+			break;
+		case 't':
+			/* TODO: verify */
+			drone->BasicID.UAType = atoi(optarg);
+			break;
+		case 'r':
+			global->refresh_rate = atoi(optarg);
+			break;
+		default:
+			fprintf(stderr, "unknown option\n");
+			break;
 		}
 	}
 
@@ -179,6 +205,26 @@ static void drone_adopt_gps_data(ODID_UAS_Data *drone,
 		drone->Location.SpeedHorizontal, 	drone->Location.SpeedVertical
 	);
 }
+
+static void drone_set_ssid(ODID_UAS_Data *drone, struct global *global)
+{
+	char ssid[33];
+	char cmd[256];
+
+	snprintf(ssid, sizeof(ssid), "%7s:%2.5f:%3.5f:%3d",
+			drone->BasicID.UASID,
+			drone->Location.Latitude,
+			drone->Location.Longitude,
+			(int) drone->Location.AltitudeGeo);
+
+	printf("set SSID to %s, %d\n", ssid, (int)strlen(ssid));
+
+	system("hostapd_cli DISABLE");
+	snprintf(cmd, sizeof(cmd), "hostapd_cli SET ssid \"%s\"", ssid);
+	system(cmd);
+	system("hostapd_cli ENABLE");
+}
+
 
 /**
  * drone_test_receive_data - receive and process drone information
@@ -321,9 +367,9 @@ int main(int argc, char *argv[])
 
 	gps_stream(&gpsdata, WATCH_ENABLE | WATCH_JSON, NULL);
 
-	/* polling interval is once every 5 seconds */
 	while (1) {
-		usleep(500000);
+		sleep(global.refresh_rate);
+
 		/* read as much as we can using gps_read() */
 #if GPSD_API_MAJOR_VERSION >= 7
 		while ((ret = gps_read(&gpsdata, NULL, 0)) > 0);
