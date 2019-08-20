@@ -31,19 +31,25 @@
 struct global {
 	char server[1024];
 	char port[16];
+	char wlan_iface[16];
 	char mac[6];
 	uint8_t send_counter;
 	int refresh_rate;
+	int test_json;
+	int set_ssid_string;
 };
 
 void usage(char *name)
 {
 	fprintf(stderr,"%s\n", name);
-	fprintf(stderr,"\t-h\tGPSD Host\n");
-	fprintf(stderr,"\t-p\tGPSD Port\n");
+	fprintf(stderr,"\t-h\tGPSD Host (default: 127.0.0.1)\n");
+	fprintf(stderr,"\t-p\tGPSD Port (default: "DEFAULT_GPSD_PORT"\n");
+	fprintf(stderr,"\t-w\twlan interface (default: wlan0)\n");
 	fprintf(stderr,"\t-i\tDrone ID (string)\n");
 	fprintf(stderr,"\t-t\tDrone type (number)\n");
 	fprintf(stderr,"\t-r\tRefresh rate of beacon sends, in seconds\n");
+	fprintf(stderr,"\t-T\tTest JSON Input/Output (debug)\n");
+	fprintf(stderr,"\t-S\tadditionally set an SSID string (debug/legacy)\n");
 }
 
 static int nl80211_id = -1;
@@ -120,12 +126,13 @@ int read_arguments(int argc, char *argv[], ODID_UAS_Data *drone, struct global *
 
 	strncpy(global->server, "127.0.0.1", sizeof(global->server));
 	strncpy(global->port, (char *)DEFAULT_GPSD_PORT, sizeof(global->port));
+	strncpy(global->wlan_iface, "wlan0", sizeof(global->wlan_iface));
 	strncpy(drone->BasicID.UASID, "1", sizeof(drone->BasicID.UASID));
 	drone->BasicID.IDType = ODID_IDTYPE_SERIAL_NUMBER;
 	drone->BasicID.UAType = ODID_UATYPE_FREE_BALLOON; /* balloon */
 	global->refresh_rate = 1;
 
-	while((opt = getopt(argc, argv, "hp:H:i:t:r:")) != -1) {
+	while((opt = getopt(argc, argv, "hp:H:i:t:r:TSw:")) != -1) {
 		switch (opt) {
 		case 'h':
 			usage(argv[0]);
@@ -137,6 +144,10 @@ int read_arguments(int argc, char *argv[], ODID_UAS_Data *drone, struct global *
 		case 'H':
 			strncpy(global->server, optarg, sizeof(global->server));
 			break;
+		case 'w':
+			strncpy(global->wlan_iface, optarg, sizeof(global->wlan_iface));
+			break;
+
 		case 'i':
 			strncpy(drone->BasicID.UASID, optarg, sizeof(drone->BasicID.UASID));
 			break;
@@ -146,6 +157,12 @@ int read_arguments(int argc, char *argv[], ODID_UAS_Data *drone, struct global *
 			break;
 		case 'r':
 			global->refresh_rate = atoi(optarg);
+			break;
+		case 'T':
+			global->test_json = 1;
+			break;
+		case 'S':
+			global->set_ssid_string = 1;
 			break;
 		default:
 			fprintf(stderr, "unknown option\n");
@@ -267,15 +284,17 @@ static void drone_send_data(ODID_UAS_Data *drone, struct global *global, struct 
 	if (global->set_ssid_string)
 		drone_set_ssid(drone, global);
 
-	drone_str = drone_export_gps_data(drone);
-	if (drone_str != NULL) {
-		fp = fopen(filename, "w");
-		if (fp != NULL) {
-			fputs(drone_str, fp);
-			fclose(fp);
+	if (global->test_json) {
+		drone_str = drone_export_gps_data(drone);
+		if (drone_str != NULL) {
+			fp = fopen(filename, "w");
+			if (fp != NULL) {
+				fputs(drone_str, fp);
+				fclose(fp);
+			}
 		}
+		free(drone_str);
 	}
-	free(drone_str);
 
 	ret = odid_wifi_build_message_pack_nan_action_frame(drone, global->mac, global->send_counter++, frame_buf, sizeof(frame_buf));
 	if (ret < 0) {
@@ -297,7 +316,8 @@ static void drone_send_data(ODID_UAS_Data *drone, struct global *global, struct 
 		printf("\n");
 	}
 
-	drone_test_receive_data(frame_buf, (uint8_t)ret, global->mac);
+	if (global->test_json)
+		drone_test_receive_data(frame_buf, (uint8_t)ret, global->mac);
 
 	ret = send_nl80211_action(nl_sock, if_index, frame_buf, ret);
 	if (ret < 0) {
@@ -349,8 +369,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	/* TODO acquire dynamically */
-	if (get_device_mac("wlp2s0", global.mac, &if_index) < 0) {
+	if (get_device_mac(global.wlan_iface, global.mac, &if_index) < 0) {
 		fprintf(stderr, "%s: Couldn't acquire wlan0 address\n", argv[0]);
 
 		return -1;
