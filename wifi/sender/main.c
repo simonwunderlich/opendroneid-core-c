@@ -301,20 +301,6 @@ static void drone_send_data(ODID_UAS_Data *drone, struct global *global, struct 
 		fprintf(stderr, "%s: odid_wifi_build_message_pack_nan_action_frame failed: %d (%s)", __func__, ret, strerror(ret));
 		return;
 	}
-	{
-		int i;
-
-		printf("frame (len %i):\n\t", ret);
-		for (i = 0; i < ret; i++) {
-			printf("%02x ", frame_buf[i]);
-			if (i % 4 == 3)
-				printf(" ");
-
-			if (i % 16 == 15)
-				printf("\n\t");
-		}
-		printf("\n");
-	}
 
 	if (global->test_json)
 		drone_test_receive_data(frame_buf, (uint8_t)ret, global->mac);
