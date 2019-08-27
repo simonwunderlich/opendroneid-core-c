@@ -359,7 +359,7 @@ float decodeTimestampAccuracy(ODID_Timestamp_accuracy_t Accuracy);
 
 /**
  * odid_message_encode_pack - encodes the messages in the odid pack
- * @inPack: plain data message pack
+ * @UAS_Data: general drone status information
  * @pack: buffer space to write to
  * @buflen: maximum length of buffer space
  *
@@ -381,6 +381,27 @@ int odid_message_encode_pack(ODID_UAS_Data *UAS_Data, void *pack, size_t buflen)
 int odid_wifi_build_message_pack_nan_action_frame(ODID_UAS_Data *UAS_Data, char *mac,
 						  uint8_t send_counter,
 						  uint8_t *buf, size_t buf_size);
+
+/* odid_message_decode_pack - decodes the messages from the odid mesasge pack
+ * @UAS_Data: general drone status information
+ * @pack: buffer space to read from
+ * @buflen: length of buffer space
+ *
+ * Returns 0 on success
+ */
+int odid_message_decode_pack(ODID_UAS_Data *UAS_Data, uint8_t *pack, size_t buflen);
+
+/* odid_wifi_receive_message_pack_nan_action_frame - processes a received message pack
+ * with each type of message from the drone information into an NAN action frame
+ * @UAS_Data: general drone status information
+ * @mac: mac address of the wifi adapter where the NAN frame was sent
+ * @buf: pointer to buffer space where the NAN is stored
+ * @buf_size: maximum size of the buffer
+ *
+ * Returns 0 on success, or < 0 on error.
+ */
+int odid_wifi_receive_message_pack_nan_action_frame(ODID_UAS_Data *UAS_Data,
+						    char *mac, uint8_t *buf, size_t buf_size);
 
 /**
 * IEEE 802.11 structs to build management action frame
