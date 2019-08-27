@@ -140,6 +140,8 @@ int read_arguments(int argc, char *argv[], ODID_UAS_Data *drone, struct global *
 static void drone_adopt_gps_data(ODID_UAS_Data *drone,
 				 struct gps_data_t *gpsdata)
 {
+	uint64_t time_in_tenth;
+
 	/*
 	*	ALL READOUTS FROM GPSD
 	*/
@@ -164,17 +166,44 @@ static void drone_adopt_gps_data(ODID_UAS_Data *drone,
 	drone->Location.SpeedAccuracy = gpsdata->fix.epc;
 
 	/* Time */
-	drone->Location.TimeStamp = gpsdata->fix.time;
-	drone->Location.TSAccuracy = gpsdata->fix.ept;
+	time_in_tenth = gpsdata->fix.time * 10;
+	drone->Location.TimeStamp = (float)((time_in_tenth % 36000) / 10);
+	drone->Location.TSAccuracy = (float)gpsdata->fix.ept;
 
 	printf("drone:\n\t"
 		"TimeStamp: %f, time since last hour (100ms): %ld, TSAccuracy: %d\n\t"
 		"Latitude: %f, Longitude: %f\n\t"
 		"SpeedHorizontal: %f, SpeedVertical: %f\n",
-		drone->Location.TimeStamp, (uint64_t)(drone->Location.TimeStamp*10)%36000, drone->Location.TSAccuracy,	// TODO
+		drone->Location.TimeStamp, (uint64_t)(drone->Location.TimeStamp*10)%36000, drone->Location.TSAccuracy,
 		drone->Location.Latitude, drone->Location.Longitude,
 		drone->Location.SpeedHorizontal, 	drone->Location.SpeedVertical
 	);
+}
+
+/**
+ * drone_test_receive_data - receive and process drone information
+ */
+static void drone_test_receive_data(uint8_t *buf, size_t buf_size, char *mac)
+{
+	ODID_UAS_Data rcvd;
+	int ret;
+	FILE *fp;
+	char filename[] = "rcvd_drone.json";
+	char *drone_str;
+
+	ret = odid_wifi_receive_message_pack_nan_action_frame(&rcvd, mac, buf, buf_size);
+	if (ret < 0)
+		return;
+
+	drone_str = drone_export_gps_data(&rcvd);
+	if (drone_str != NULL) {
+		fp = fopen(filename, "w");
+		if (fp != NULL) {
+			fputs(drone_str, fp);
+			fclose(fp);
+		}
+	}
+	free(drone_str);
 }
 
 /**
@@ -185,6 +214,19 @@ static void drone_send_data(ODID_UAS_Data *drone, struct global *global, struct 
 {
 	uint8_t frame_buf[1024];
 	int ret;
+	FILE *fp;
+	char filename[] = "drone.json";
+	char *drone_str;
+
+	drone_str = drone_export_gps_data(drone);
+	if (drone_str != NULL) {
+		fp = fopen(filename, "w");
+		if (fp != NULL) {
+			fputs(drone_str, fp);
+			fclose(fp);
+		}
+	}
+	free(drone_str);
 
 	ret = odid_wifi_build_message_pack_nan_action_frame(drone, global->mac, global->send_counter++, frame_buf, sizeof(frame_buf));
 	if (ret < 0) {
@@ -194,16 +236,19 @@ static void drone_send_data(ODID_UAS_Data *drone, struct global *global, struct 
 	{
 		int i;
 
-		printf("frame: ");
+		printf("frame (len %i):\n\t", ret);
 		for (i = 0; i < ret; i++) {
 			printf("%02x ", frame_buf[i]);
 			if (i % 4 == 3)
 				printf(" ");
 
 			if (i % 16 == 15)
-				printf("\n");
+				printf("\n\t");
 		}
+		printf("\n");
 	}
+
+	drone_test_receive_data(frame_buf, (uint8_t)ret, global->mac);
 
 	ret = send_nl80211_action(nl_sock, if_index, frame_buf, ret);
 	if (ret < 0) {
@@ -256,7 +301,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* TODO acquire dynamically */
-	if (get_device_mac("wlan0", global.mac, &if_index) < 0) {
+	if (get_device_mac("wlp2s0", global.mac, &if_index) < 0) {
 		fprintf(stderr, "%s: Couldn't acquire wlan0 address\n", argv[0]);
 
 		return -1;
