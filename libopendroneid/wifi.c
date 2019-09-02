@@ -12,6 +12,8 @@ gabriel.c.cox@intel.com
 
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
 #include <errno.h>
 #include <byteswap.h>
 
@@ -26,6 +28,123 @@ gabriel.c.cox@intel.com
 #define IEEE80211_FTYPE_MGMT            0x0000
 #define IEEE80211_STYPE_ACTION          0x00D0
 
+
+char *drone_export_gps_data(ODID_UAS_Data *UAS_Data)
+{
+	int len = 0, total_len = 8192;
+	char *drone_str;
+
+	drone_str = malloc(total_len);
+	if (!drone_str)
+		return NULL;
+
+#define mprintf(...) {\
+	if (total_len - len < 2048) { \
+		total_len *= 2; \
+		drone_str = realloc(drone_str, total_len); \
+		if (!drone_str) \
+			return NULL; \
+	} \
+	len += snprintf(drone_str + len, total_len - len, __VA_ARGS__); \
+	if (len > total_len) { \
+		free(drone_str); \
+		return NULL; \
+	} \
+}
+	/* build json object from UAS_Data */
+	/*
+	{
+		"Version": "x.x",
+		"Response": {
+			"BasicID": {
+				"UAType": <>,
+				"IDType": <>,
+				"UASID": <>
+			},
+			"Location": {
+				"Status": <>,
+				"Direction": <>,
+				"SpeedHorizontal": <>,
+				"SpeedVertical": <>,
+				"Latitude": <>,
+				"Longitude": <>,
+				"AltitudeBaro": <>,
+				"AltitudeGeo": <>,
+				"Height": <>,
+				"HAccuracy": <>,
+				"VAccuracy": <>,
+				"SpAccuracy": <>,
+				"TSAccuracy": <>,
+				"TimeStamp": <>
+			},
+			"Authentication": {
+				"AuthType": <>,
+				"AuthToken": <>
+			},
+			"SelfID": {
+				"Name": <>,
+				"Description": <>
+			},
+			"Operator": {
+				"LocationSource": <>,
+				"Latitude": <>,
+				"Longitude": <>,
+				"GroupCount": <>,
+				"GroupRadius": <>,
+				"GroupCeiling": <>
+			}
+		}
+	}
+	*/
+
+	mprintf("{\n\t\"Version\": \"0.0\",\n\t\"Response\": {\n");
+
+	mprintf("\t\t\"BasicID\": {\n");
+	mprintf("\t\t\t\"UAType\": %i,\n", UAS_Data->BasicID.UAType);
+	mprintf("\t\t\t\"IDType\": %i,\n", UAS_Data->BasicID.IDType);
+	mprintf("\t\t\t\"UASID\": %s\n", UAS_Data->BasicID.UASID);
+	mprintf("\t\t},\n");
+
+	mprintf("\t\t\"Location\": {\n");
+	mprintf("\t\t\t\"Status\": %d,\n", (int)UAS_Data->Location.Status);
+	mprintf("\t\t\t\"Direction\": %f,\n", UAS_Data->Location.Direction);
+	mprintf("\t\t\t\"SpeedHorizontal\": %f,\n", UAS_Data->Location.SpeedHorizontal);
+	mprintf("\t\t\t\"SpeedVertical\": %f,\n", UAS_Data->Location.SpeedVertical);
+	mprintf("\t\t\t\"Latitude\": %f,\n", UAS_Data->Location.Latitude);
+	mprintf("\t\t\t\"Longitude\": %f,\n", UAS_Data->Location.Longitude);
+	mprintf("\t\t\t\"AltitudeBaro\": %f,\n", UAS_Data->Location.AltitudeBaro);
+	mprintf("\t\t\t\"AltitudeGeo\": %f,\n", UAS_Data->Location.AltitudeGeo);
+	mprintf("\t\t\t\"Height\": %f,\n", UAS_Data->Location.Height);
+	mprintf("\t\t\t\"HorizAccuracy\": %d,\n", UAS_Data->Location.HorizAccuracy);
+	mprintf("\t\t\t\"VertAccuracy\": %d,\n", UAS_Data->Location.VertAccuracy);
+	mprintf("\t\t\t\"SpeedAccuracy\": %d,\n", UAS_Data->Location.SpeedAccuracy);
+	mprintf("\t\t\t\"TSAccuracy\": %d,\n", UAS_Data->Location.TSAccuracy);
+	mprintf("\t\t\t\"TimeStamp\": %f\n", UAS_Data->Location.TimeStamp);
+	mprintf("\t\t},\n");
+
+	mprintf("\t\t\"Authentication\": {\n");
+	mprintf("\t\t\t\"AuthType\": %i,\n", UAS_Data->Auth.AuthType);
+	mprintf("\t\t\t\"AuthToken\": %s\n", UAS_Data->Auth.AuthData);
+	mprintf("\t\t},\n");
+
+	mprintf("\t\t\"SelfID\": {\n");
+	mprintf("\t\t\t\"Name\": \"string\",\n");
+	mprintf("\t\t\t\"Description\": %s\n", UAS_Data->SelfID.Desc);
+	mprintf("\t\t},\n");
+
+	mprintf("\t\t\"Operator\": {\n");
+	mprintf("\t\t\t\"LocationSource\": %i,\n", UAS_Data->System.LocationSource);
+	mprintf("\t\t\t\"remotePilotLatitude\": %f,\n", UAS_Data->System.remotePilotLatitude);
+	mprintf("\t\t\t\"remotePilotLongitude\": %f,\n", UAS_Data->System.remotePilotLongitude);
+	mprintf("\t\t\t\"GroupCount\": %i,\n", UAS_Data->System.GroupCount);
+	mprintf("\t\t\t\"GroupRadius\": %i,\n", UAS_Data->System.GroupRadius);
+	mprintf("\t\t\t\"GroupCeiling\": %f\n", UAS_Data->System.GroupCeiling);
+	mprintf("\t\t}\n");
+
+	mprintf("\t}\n}");
+
+	return drone_str;
+}
 
 int odid_message_encode_pack(ODID_UAS_Data *UAS_Data, void *pack, size_t buflen)
 {

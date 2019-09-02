@@ -358,6 +358,15 @@ float decodeTimestampAccuracy(ODID_Timestamp_accuracy_t Accuracy);
 // OpenDroneID WiFi functions
 
 /**
+ * drone_export_gps_data - prints drone information to json style string,
+ * according to odid message specification
+ * @UAS_Data: general drone status information
+ *
+ * Returns pointer to gps_data string on success, otherwise returns NULL
+ */
+char *drone_export_gps_data(ODID_UAS_Data *UAS_Data);
+
+/**
  * odid_message_encode_pack - encodes the messages in the odid pack
  * @UAS_Data: general drone status information
  * @pack: buffer space to write to
