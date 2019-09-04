@@ -246,9 +246,10 @@ static void drone_set_ssid(ODID_UAS_Data *drone, struct global *global)
 /**
  * drone_test_receive_data - receive and process drone information
  */
-static void drone_test_receive_data(uint8_t *buf, size_t buf_size, char *mac)
+static void drone_test_receive_data(uint8_t *buf, size_t buf_size)
 {
 	ODID_UAS_Data rcvd;
+	char mac[6];
 	int ret;
 	FILE *fp;
 	char filename[] = "rcvd_drone.json";
@@ -303,7 +304,7 @@ static void drone_send_data(ODID_UAS_Data *drone, struct global *global, struct 
 	}
 
 	if (global->test_json)
-		drone_test_receive_data(frame_buf, (uint8_t)ret, global->mac);
+		drone_test_receive_data(frame_buf, (uint8_t)ret);
 
 	ret = send_nl80211_action(nl_sock, if_index, frame_buf, ret);
 	if (ret < 0) {
