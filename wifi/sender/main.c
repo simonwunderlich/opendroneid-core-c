@@ -170,8 +170,6 @@ int read_arguments(int argc, char *argv[], ODID_UAS_Data *drone, struct global *
 		}
 	}
 
-	printf("global: %s:%s", global->server, global->port);
-
 	return 0;
 }
 
@@ -394,10 +392,10 @@ int main(int argc, char *argv[])
 		drone_send_data(&drone, &global, nl_sock, if_index);
 	}
 
-out:
-	nl_socket_free(nl_sock);
 	gps_stream(&gpsdata, WATCH_DISABLE, NULL);
 	gps_close(&gpsdata);
+out:
+	nl_socket_free(nl_sock);
 
 	return 0;
 }
