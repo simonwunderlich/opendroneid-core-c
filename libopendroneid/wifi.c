@@ -249,7 +249,7 @@ int odid_wifi_build_message_pack_nan_action_frame(ODID_UAS_Data *UAS_Data, char 
 
 	/* set the lengths according to the message pack lengths */
 	nsda->service_info_length = sizeof(*si) + ret;
-	nsda->length = sizeof(*nsda) + nsda->service_info_length;
+	nsda->length = cpu_to_le16(sizeof(*nsda) - sizeof(struct nan_attribute_header) + nsda->service_info_length);
 
 	return len;
 }

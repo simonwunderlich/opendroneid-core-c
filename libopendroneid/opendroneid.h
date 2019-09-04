@@ -431,6 +431,11 @@ struct __attribute__((__packed__)) nan_service_discovery {
 	uint8_t oui_type;
 };
 
+struct __attribute__((__packed__)) nan_attribute_header {
+	uint8_t attribute_id;
+	uint16_t length;
+};
+
 struct __attribute__((__packed__)) nan_service_descriptor_attribute {
 	uint8_t attribute_id;
 	uint16_t length;
