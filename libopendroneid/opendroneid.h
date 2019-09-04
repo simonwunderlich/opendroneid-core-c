@@ -403,11 +403,11 @@ int odid_message_decode_pack(ODID_UAS_Data *UAS_Data, uint8_t *pack, size_t bufl
 /* odid_wifi_receive_message_pack_nan_action_frame - processes a received message pack
  * with each type of message from the drone information into an NAN action frame
  * @UAS_Data: general drone status information
- * @mac: mac address of the wifi adapter where the NAN frame was sent
+ * @mac: mac address of the wifi adapter where the NAN frame will be sent
  * @buf: pointer to buffer space where the NAN is stored
  * @buf_size: maximum size of the buffer
  *
- * Returns 0 on success, or < 0 on error.
+ * Returns 0 on success, or < 0 on error. Will fill 6 bytes into @mac.
  */
 int odid_wifi_receive_message_pack_nan_action_frame(ODID_UAS_Data *UAS_Data,
 						    char *mac, uint8_t *buf, size_t buf_size);

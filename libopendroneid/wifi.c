@@ -25,6 +25,9 @@ gabriel.c.cox@intel.com
 #define cpu_to_le16(x)      (bswap_16(x))
 #endif
 
+#define IEEE80211_FCTL_FTYPE          0x000c
+#define IEEE80211_FCTL_STYPE          0x00f0
+
 #define IEEE80211_FTYPE_MGMT            0x0000
 #define IEEE80211_STYPE_ACTION          0x00D0
 
@@ -281,24 +284,23 @@ int odid_wifi_receive_message_pack_nan_action_frame(ODID_UAS_Data *UAS_Data,
 	struct nan_service_discovery *nsd;
 	struct nan_service_descriptor_attribute *nsda;
 	struct ODID_service_info *si;
-	uint16_t mgmt_frame_control = cpu_to_le16(IEEE80211_FTYPE_MGMT | IEEE80211_STYPE_ACTION);
 	uint8_t wifi_alliance_oui[3] = { 0x50, 0x6F, 0x9A };
 	uint8_t service_id[6] = { 0x88, 0x69, 0x19, 0x9D, 0x92, 0x09 };
 	int ret, len;
 
 	/* basic header size check */
-	if ((int)(sizeof(*mgmt) + sizeof(*nsd) + sizeof(*nsda) + sizeof(*si)) > (int)buf_size)
+	if (sizeof(*mgmt) + sizeof(*nsd) + sizeof(*nsda) + sizeof(*si) > buf_size)
 		return -EINVAL;
 	len = 0;
 
 	/* check for frame type and correct sender address */
 	mgmt = (struct ieee80211_mgmt *)(buf + len);
-	if (memcmp(&mgmt->frame_control, &mgmt_frame_control, sizeof(mgmt_frame_control))) {
+	if ((mgmt->frame_control & cpu_to_le16(IEEE80211_FCTL_FTYPE | IEEE80211_FCTL_STYPE)) !=
+	    cpu_to_le16(IEEE80211_FTYPE_MGMT | IEEE80211_STYPE_ACTION))
 		return -EINVAL;
-	}
-	if (memcmp(mgmt->sa, mac, sizeof(mgmt->sa)) != 0) {
-		return -EINVAL;
-	}
+
+	memcpy(mac, mgmt->sa, sizeof(mgmt->sa));
+
 	len += sizeof(*mgmt);
 
 	/* check NAN service discovery frame fields */
@@ -323,9 +325,9 @@ int odid_wifi_receive_message_pack_nan_action_frame(ODID_UAS_Data *UAS_Data,
 		return -EINVAL;
 	if (nsda->service_control != 0x10)
 		return -EINVAL;
-	if (len + sizeof(*nsda) + nsda->service_info_length != buf_size) {
+	if (len + sizeof(*nsda) + nsda->service_info_length != buf_size)
 		return -EINVAL;
-	}
+
 	len += sizeof(*nsda);
 
 	si = (struct ODID_service_info *)(buf + len);
