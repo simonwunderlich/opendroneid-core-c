@@ -1,7 +1,7 @@
 find_package(PkgConfig)
 
 pkg_check_modules(GPS REQUIRED libgps)
-pkg_check_modules(NL libnl-tiny)
+pkg_check_modules(NL QUIET libnl-tiny)
 if (NOT NL_FOUND)
 	pkg_check_modules(NL REQUIRED libnl-genl-3.0)
 endif(NOT NL_FOUND)
