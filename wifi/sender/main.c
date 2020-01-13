@@ -256,12 +256,14 @@ static void drone_test_receive_data(uint8_t *buf, size_t buf_size)
 	FILE *fp;
 	char filename[] = "rcvd_drone.json";
 	char *drone_str;
+	int drone_str_len = 8192;
 
 	ret = odid_wifi_receive_message_pack_nan_action_frame(&rcvd, mac, buf, buf_size);
 	if (ret < 0)
 		return;
 
-	drone_str = drone_export_gps_data(&rcvd);
+	drone_str = malloc(drone_str_len);
+	drone_export_gps_data(&rcvd, drone_str, drone_str_len);
 	if (drone_str != NULL) {
 		fp = fopen(filename, "w");
 		if (fp != NULL) {
@@ -283,12 +285,14 @@ static void drone_send_data(ODID_UAS_Data *drone, struct global *global, struct 
 	FILE *fp;
 	char filename[] = "drone.json";
 	char *drone_str;
+	int drone_str_len = 8192;
 
 	if (global->set_ssid_string)
 		drone_set_ssid(drone, global);
 
 	if (global->test_json) {
-		drone_str = drone_export_gps_data(drone);
+		drone_str = malloc(drone_str_len);
+		drone_export_gps_data(drone, drone_str, drone_str_len);
 		if (drone_str != NULL) {
 			fp = fopen(filename, "w");
 			if (fp != NULL) {
@@ -306,7 +310,7 @@ static void drone_send_data(ODID_UAS_Data *drone, struct global *global, struct 
 	}
 
 	if (global->test_json)
-		drone_test_receive_data(frame_buf, (uint8_t)ret);
+		drone_test_receive_data(frame_buf, ret);
 
 	ret = send_nl80211_action(nl_sock, if_index, frame_buf, ret);
 	if (ret < 0) {
