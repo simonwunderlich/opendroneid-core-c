@@ -465,10 +465,12 @@ float decodeTimestampAccuracy(ODID_Timestamp_accuracy_t Accuracy);
  * drone_export_gps_data - prints drone information to json style string,
  * according to odid message specification
  * @UAS_Data: general drone status information
+ * @buf: buffer for the json style string
+ * @buf_size: size of the string buffer
  *
  * Returns pointer to gps_data string on success, otherwise returns NULL
  */
-char *drone_export_gps_data(ODID_UAS_Data *UAS_Data);
+void drone_export_gps_data(ODID_UAS_Data *UAS_Data, char *buf, size_t buf_size);
 
 /**
  * odid_message_build_pack - combines the messages and encodes the odid pack

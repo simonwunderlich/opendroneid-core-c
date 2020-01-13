@@ -32,29 +32,17 @@ gabriel.c.cox@intel.com
 #define IEEE80211_STYPE_ACTION          0x00D0
 
 
-char *drone_export_gps_data(ODID_UAS_Data *UAS_Data)
+void drone_export_gps_data(ODID_UAS_Data *UAS_Data, char *buf, size_t buf_size)
 {
-	int len = 0, total_len = 8192;
-	char *drone_str;
-
-	drone_str = malloc(total_len);
-	if (!drone_str)
-		return NULL;
+	int len = 0;
 
 #define mprintf(...) {\
-	if (total_len - len < 2048) { \
-		total_len *= 2; \
-		drone_str = realloc(drone_str, total_len); \
-		if (!drone_str) \
-			return NULL; \
-	} \
-	len += snprintf(drone_str + len, total_len - len, __VA_ARGS__); \
-	if (len > total_len) { \
-		free(drone_str); \
-		return NULL; \
-	} \
+	len += snprintf(buf + len, buf_size - len, __VA_ARGS__); \
+	if (len >= buf_size)\
+		return; \
 }
-	/* build json object from UAS_Data */
+	/* build json object from UAS_Data
+	 * specs 0.64.3 */
 	/*
 	{
 		"Version": "x.x",
@@ -100,7 +88,7 @@ char *drone_export_gps_data(ODID_UAS_Data *UAS_Data)
 	}
 	*/
 
-	mprintf("{\n\t\"Version\": \"0.0\",\n\t\"Response\": {\n");
+	mprintf("{\n\t\"Version\": \"0.8\",\n\t\"Response\": {\n");
 
 	mprintf("\t\t\"BasicID\": {\n");
 	mprintf("\t\t\t\"UAType\": %i,\n", UAS_Data->BasicID.UAType);
@@ -117,9 +105,11 @@ char *drone_export_gps_data(ODID_UAS_Data *UAS_Data)
 	mprintf("\t\t\t\"Longitude\": %f,\n", UAS_Data->Location.Longitude);
 	mprintf("\t\t\t\"AltitudeBaro\": %f,\n", UAS_Data->Location.AltitudeBaro);
 	mprintf("\t\t\t\"AltitudeGeo\": %f,\n", UAS_Data->Location.AltitudeGeo);
+	mprintf("\t\t\t\"HeightType\": %i,\n", UAS_Data->Location.HeightType);
 	mprintf("\t\t\t\"Height\": %f,\n", UAS_Data->Location.Height);
 	mprintf("\t\t\t\"HorizAccuracy\": %d,\n", UAS_Data->Location.HorizAccuracy);
 	mprintf("\t\t\t\"VertAccuracy\": %d,\n", UAS_Data->Location.VertAccuracy);
+	mprintf("\t\t\t\"BaroAccuracy\": %d,\n", UAS_Data->Location.BaroAccuracy);
 	mprintf("\t\t\t\"SpeedAccuracy\": %d,\n", UAS_Data->Location.SpeedAccuracy);
 	mprintf("\t\t\t\"TSAccuracy\": %d,\n", UAS_Data->Location.TSAccuracy);
 	mprintf("\t\t\t\"TimeStamp\": %f\n", UAS_Data->Location.TimeStamp);
@@ -127,11 +117,16 @@ char *drone_export_gps_data(ODID_UAS_Data *UAS_Data)
 
 	mprintf("\t\t\"Authentication\": {\n");
 	mprintf("\t\t\t\"AuthType\": %i,\n", UAS_Data->Auth[0].AuthType);
-	mprintf("\t\t\t\"AuthToken\": %s\n", UAS_Data->Auth[0].AuthData);
+	mprintf("\t\t\t\"PageCount\": %i,\n", UAS_Data->Auth[0].PageCount);
+	mprintf("\t\t\t\"Length\": %i,\n", UAS_Data->Auth[0].Length);
+	mprintf("\t\t\t\"Timestamp\": %lli,\n", UAS_Data->Auth[0].Timestamp);
+	for (int i = 0; i < UAS_Data->Auth[0].PageCount; i++) {
+		mprintf("\t\t\t\"AuthData Page %i\": %s\n", i, UAS_Data->Auth[i].AuthData);
+	}
 	mprintf("\t\t},\n");
 
 	mprintf("\t\t\"SelfID\": {\n");
-	mprintf("\t\t\t\"Name\": \"string\",\n");
+	mprintf("\t\t\t\"Description Type\": %i\n", UAS_Data->SelfID.DescType);
 	mprintf("\t\t\t\"Description\": %s\n", UAS_Data->SelfID.Desc);
 	mprintf("\t\t},\n");
 
@@ -139,14 +134,20 @@ char *drone_export_gps_data(ODID_UAS_Data *UAS_Data)
 	mprintf("\t\t\t\"LocationSource\": %i,\n", UAS_Data->System.LocationSource);
 	mprintf("\t\t\t\"OperatorLatitude\": %f,\n", UAS_Data->System.OperatorLatitude);
 	mprintf("\t\t\t\"OperatorLongitude\": %f,\n", UAS_Data->System.OperatorLongitude);
-	mprintf("\t\t\t\"AreaCount\": %i,\n", UAS_Data->System.AreaCount);
-	mprintf("\t\t\t\"AreaRadius\": %i,\n", UAS_Data->System.AreaRadius);
+	mprintf("\t\t\t\"AreaCount\": %li,\n", UAS_Data->System.AreaCount);
+	mprintf("\t\t\t\"AreaRadius\": %li,\n", UAS_Data->System.AreaRadius);
 	mprintf("\t\t\t\"AreaCeiling\": %f\n", UAS_Data->System.AreaCeiling);
+	mprintf("\t\t\t\"AreaFloor\": %f\n", UAS_Data->System.AreaFloor);
 	mprintf("\t\t}\n");
+
+	mprintf("\t\t\"OperatorID\": {\n");
+	mprintf("\t\t\t\"OperatorIdType\": %i,\n", UAS_Data->OperatorID.OperatorIdType);
+	mprintf("\t\t\t\"OperatorId\": \"%s\",\n", UAS_Data->OperatorID.OperatorId);
+	mprintf("\t\t},\n");
 
 	mprintf("\t}\n}");
 
-	return drone_str;
+	return;
 }
 
 int odid_message_build_pack(ODID_UAS_Data *UAS_Data, void *pack, size_t buflen)
