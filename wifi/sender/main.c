@@ -187,38 +187,101 @@ static void drone_adopt_gps_data(ODID_UAS_Data *drone,
 	*	ALL READOUTS FROM GPSD
 	*/
 	printf("\nGPS:\tmode %d\n", gpsdata->fix.mode);
+	drone->Location.Status = ODID_STATUS_AIRBORNE;
 
 	/* Latitude/Longitude */
 	drone->Location.Latitude = gpsdata->fix.latitude;
 	drone->Location.Longitude = gpsdata->fix.longitude;
-	drone->Location.HorizAccuracy = gpsdata->fix.epy > gpsdata->fix.epx ? gpsdata->fix.epy : gpsdata->fix.epx;
+	drone->Location.HorizAccuracy = gpsdata->fix.epy > gpsdata->fix.epx ? createEnumHorizontalAccuracy(gpsdata->fix.epy)
+									    : createEnumHorizontalAccuracy(gpsdata->fix.epx);
 
 	/* Altitude */
+	drone->Location.AltitudeBaro = -1000;				/* unknown */
 	drone->Location.AltitudeGeo = gpsdata->fix.altitude;
-	drone->Location.VertAccuracy = gpsdata->fix.epv;
+	drone->Location.BaroAccuracy = ODID_VER_ACC_UNKNOWN;		/* unknown */
+	drone->Location.VertAccuracy = createEnumVerticalAccuracy(gpsdata->fix.epv);
+	drone->Location.HeightType = ODID_HEIGHT_REF_OVER_GROUND;
+	drone->Location.Height = -1000;					/* unknown */
 
 	/* Horizontal movement */
 	drone->Location.Direction = gpsdata->fix.track;
-	drone->Location.SpeedAccuracy = gpsdata->fix.eps;
 	drone->Location.SpeedHorizontal = gpsdata->fix.speed;
 
 	/* Vertical movement */
 	drone->Location.SpeedVertical = gpsdata->fix.climb;
-	drone->Location.SpeedAccuracy = gpsdata->fix.epc;
+
+	drone->Location.SpeedAccuracy = createEnumSpeedAccuracy(gpsdata->fix.eps > gpsdata->fix.epc ? gpsdata->fix.eps : gpsdata->fix.epc);
 
 	/* Time */
 	time_in_tenth = gpsdata->fix.time * 10;
 	drone->Location.TimeStamp = (float)((time_in_tenth % 36000) / 10);
-	drone->Location.TSAccuracy = (float)gpsdata->fix.ept;
+	drone->Location.TSAccuracy = createEnumTimestampAccuracy((float)gpsdata->fix.ept);
 
 	printf("drone:\n\t"
-		"TimeStamp: %f, time since last hour (100ms): %ld, TSAccuracy: %d\n\t"
-		"Latitude: %f, Longitude: %f\n\t"
-		"SpeedHorizontal: %f, SpeedVertical: %f\n",
-		drone->Location.TimeStamp, (uint64_t)(drone->Location.TimeStamp*10)%36000, drone->Location.TSAccuracy,
-		drone->Location.Latitude, drone->Location.Longitude,
-		drone->Location.SpeedHorizontal, 	drone->Location.SpeedVertical
+	       "TimeStamp: %f, time since last hour (100ms): %ld, TSAccuracy: %d\n\t"
+	       "Direction: %f, SpeedHorizontal: %f, SpeedVertical: %f\n\t"
+	       "Latitude: %f, Longitude: %f\n",
+	       drone->Location.TimeStamp, (uint64_t)(drone->Location.TimeStamp*10)%36000, drone->Location.TSAccuracy,
+	       drone->Location.Direction, drone->Location.SpeedHorizontal, drone->Location.SpeedVertical,
+	       drone->Location.Latitude, drone->Location.Longitude
 	);
+}
+
+/**
+ * drone_set_mock_data - populate the drone with some mock information as placeholder
+ * @drone: general drone status information
+ */
+static void drone_set_mock_data(ODID_UAS_Data *drone)
+{
+	/* Basic ID */
+	drone->BasicID.UAType = ODID_UATYPE_ROTORCRAFT;
+	drone->BasicID.IDType = ODID_IDTYPE_CAA_REGISTRATION_ID;
+	char id[] = "12345678901234567890";
+	strncpy(drone->BasicID.UASID, id, sizeof(*id));
+
+	/* Authentication */
+	drone->Auth[0].AuthType = ODID_AUTH_UAS_ID_SIGNATURE;
+	drone->Auth[0].DataPage = 0;
+	drone->Auth[0].PageCount = 5;
+	drone->Auth[0].Length = 39;
+	drone->Auth[0].Timestamp = 28000000;
+	char auth0_data[] = "12345678901234567";
+	strncpy(drone->Auth[0].AuthData, auth0_data, sizeof(auth0_data));
+	drone->Auth[1].AuthType = ODID_AUTH_UAS_ID_SIGNATURE;
+	drone->Auth[1].DataPage = 1;
+	char auth1_data[] = "23456789012345678";
+	strncpy(drone->Auth[1].AuthData, auth1_data, sizeof(auth1_data));
+	drone->Auth[2].AuthType = ODID_AUTH_UAS_ID_SIGNATURE;
+	drone->Auth[2].DataPage = 2;
+	char auth2_data[] = "34567890123456789";
+	strncpy(drone->Auth[2].AuthData, auth2_data, sizeof(auth2_data));
+	drone->Auth[3].AuthType = ODID_AUTH_UAS_ID_SIGNATURE;
+	drone->Auth[3].DataPage = 3;
+	char auth3_data[] = "45678901234567890";
+	strncpy(drone->Auth[3].AuthData, auth3_data, sizeof(auth3_data));
+	drone->Auth[4].AuthType = ODID_AUTH_UAS_ID_SIGNATURE;
+	drone->Auth[4].DataPage = 4;
+	char auth4_data[] = "56789012345678901";
+	strncpy(drone->Auth[4].AuthData, auth4_data, sizeof(auth4_data));
+
+	/* Self ID */
+	drone->SelfID.DescType = ODID_DESC_TYPE_TEXT;
+	char description[] = "NAN Frame WiFi Test SID";
+	strncpy(drone->SelfID.Desc, description, sizeof(description));
+
+	/* System data */
+	drone->System.LocationSource = ODID_LOCATION_SRC_TAKEOFF;
+	drone->System.OperatorLatitude = drone->Location.Latitude + 0.00001;
+	drone->System.OperatorLongitude = drone->Location.Longitude + 0.00001;
+	drone->System.AreaCount = 20;
+	drone->System.AreaRadius = 50;
+	drone->System.AreaCeiling = 150.0;
+	drone->System.AreaFloor = 25.0;
+
+	/* Operator ID */
+	drone->OperatorID.OperatorIdType = ODID_OPERATOR_ID;
+	char operatorId[] = "99887766554433221100";
+	strncpy(drone->OperatorID.OperatorId, operatorId, sizeof(operatorId));
 }
 
 static void drone_set_ssid(ODID_UAS_Data *drone, struct global *global)
@@ -397,6 +460,7 @@ int main(int argc, char *argv[])
 		}
 
 		drone_adopt_gps_data(&drone, &gpsdata);
+		drone_set_mock_data(&drone);
 		drone_send_data(&drone, &global, nl_sock, if_index);
 	}
 
