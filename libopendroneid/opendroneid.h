@@ -471,7 +471,7 @@ float decodeTimestampAccuracy(ODID_Timestamp_accuracy_t Accuracy);
 char *drone_export_gps_data(ODID_UAS_Data *UAS_Data);
 
 /**
- * odid_message_encode_pack - encodes the messages in the odid pack
+ * odid_message_build_pack - combines the messages and encodes the odid pack
  * @UAS_Data: general drone status information
  * @pack: buffer space to write to
  * @buflen: maximum length of buffer space
@@ -479,7 +479,7 @@ char *drone_export_gps_data(ODID_UAS_Data *UAS_Data);
  * Returns length on success, < 0 on failure. @buf only contains a valid message
  * if the return code is >0
  */
-int odid_message_encode_pack(ODID_UAS_Data *UAS_Data, void *pack, size_t buflen);
+int odid_message_build_pack(ODID_UAS_Data *UAS_Data, void *pack, size_t buflen);
 
 /* odid_wifi_build_message_pack_nan_action_frame - creates a message pack
  * with each type of message from the drone information into an NAN action fram
@@ -495,14 +495,14 @@ int odid_wifi_build_message_pack_nan_action_frame(ODID_UAS_Data *UAS_Data, char 
 						  uint8_t send_counter,
 						  uint8_t *buf, size_t buf_size);
 
-/* odid_message_decode_pack - decodes the messages from the odid mesasge pack
+/* odid_message_process_pack - decodes the messages from the odid message pack
  * @UAS_Data: general drone status information
  * @pack: buffer space to read from
  * @buflen: length of buffer space
  *
  * Returns 0 on success
  */
-int odid_message_decode_pack(ODID_UAS_Data *UAS_Data, uint8_t *pack, size_t buflen);
+int odid_message_process_pack(ODID_UAS_Data *UAS_Data, uint8_t *pack, size_t buflen);
 
 /* odid_wifi_receive_message_pack_nan_action_frame - processes a received message pack
  * with each type of message from the drone information into an NAN action frame

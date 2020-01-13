@@ -149,33 +149,34 @@ char *drone_export_gps_data(ODID_UAS_Data *UAS_Data)
 	return drone_str;
 }
 
-int odid_message_encode_pack(ODID_UAS_Data *UAS_Data, void *pack, size_t buflen)
+int odid_message_build_pack(ODID_UAS_Data *UAS_Data, void *pack, size_t buflen)
 {
-	ODID_MessagePack_encoded *outPack;
+	ODID_MessagePack_data msg_pack;
+	ODID_MessagePack_encoded *msg_pack_enc;
 	size_t len = 0;
 
-	/* check if there is enough space for the header. */
-	if (sizeof(*outPack) > buflen)
+	/* check if there is enough space for the message pack. */
+	if (sizeof(*msg_pack_enc) > buflen)
 		return -ENOMEM;
 
-	/* TODO: flexibly set optional fields as available */
+	/* create a complete message pack */
+	msg_pack.SingleMessageSize = ODID_MESSAGE_SIZE;
+	msg_pack.MsgPackSize = 10;
+	encodeBasicIDMessage((void *)&msg_pack.Messages[0], &UAS_Data->BasicID);
+	encodeLocationMessage((void *)&msg_pack.Messages[1], &UAS_Data->Location);
+	encodeAuthMessage((void *)&msg_pack.Messages[2], &UAS_Data->Auth[0]);
+	encodeAuthMessage((void *)&msg_pack.Messages[3], &UAS_Data->Auth[1]);
+	encodeAuthMessage((void *)&msg_pack.Messages[4], &UAS_Data->Auth[2]);
+	encodeAuthMessage((void *)&msg_pack.Messages[5], &UAS_Data->Auth[3]);
+	encodeAuthMessage((void *)&msg_pack.Messages[6], &UAS_Data->Auth[4]);
+	encodeSelfIDMessage((void *)&msg_pack.Messages[7], &UAS_Data->SelfID);
+	encodeSystemMessage((void *)&msg_pack.Messages[8], &UAS_Data->System);
+	encodeOperatorIDMessage((void *)&msg_pack.Messages[9], &UAS_Data->OperatorID);
 
-	outPack = (ODID_MessagePack_encoded *) pack;
-	outPack->ProtoVersion = 0;
-	outPack->MessageType = 0;
-	outPack->SingleMessageSize = ODID_MESSAGE_SIZE;
-	outPack->MsgPackSize = 5;
-	len += sizeof(*outPack);
-
-	if (len + (outPack->MsgPackSize * ODID_MESSAGE_SIZE) > buflen)
-		return -ENOMEM;
-
-	encodeBasicIDMessage((void *)&outPack->Messages[0], &UAS_Data->BasicID);
-	encodeLocationMessage((void *)&outPack->Messages[1], &UAS_Data->Location);
-	encodeAuthMessage((void *)&outPack->Messages[2], &UAS_Data->Auth[0]);
-	encodeSelfIDMessage((void *)&outPack->Messages[3], &UAS_Data->SelfID);
-	encodeSystemMessage((void *)&outPack->Messages[4], &UAS_Data->System);
-	len += ODID_MESSAGE_SIZE * outPack->MsgPackSize;
+	msg_pack_enc = (ODID_MessagePack_encoded *) pack;
+	if (encodeMessagePack(msg_pack_enc, &msg_pack) != ODID_SUCCESS)
+		return -1;
+	len += sizeof(*msg_pack_enc);
 
 	return len;
 }
@@ -194,7 +195,7 @@ int odid_wifi_build_message_pack_nan_action_frame(ODID_UAS_Data *UAS_Data, char 
 	struct nan_service_discovery *nsd;
 	struct nan_service_descriptor_attribute *nsda;
 	struct ODID_service_info *si;
-	int ret, len = 0;
+	long ret, len = 0;
 
 	/* IEEE 802.11 Management Header */
 	if (len + sizeof(*mgmt) > buf_size)
@@ -245,7 +246,7 @@ int odid_wifi_build_message_pack_nan_action_frame(ODID_UAS_Data *UAS_Data, char 
 	si->message_counter = send_counter;
 	len += sizeof(*si);
 
-	ret = odid_message_encode_pack(UAS_Data, buf + len, buf_size - len);
+	ret = odid_message_build_pack(UAS_Data, buf + len, buf_size - len);
 	if (ret < 0)
 		return ret;
 	len += ret;
@@ -257,22 +258,16 @@ int odid_wifi_build_message_pack_nan_action_frame(ODID_UAS_Data *UAS_Data, char 
 	return len;
 }
 
-int odid_message_decode_pack(ODID_UAS_Data *UAS_Data, uint8_t *pack, size_t buflen)
+int odid_message_process_pack(ODID_UAS_Data *UAS_Data, uint8_t *pack, size_t buflen)
 {
-	ODID_MessagePack_encoded *inPack;
+	ODID_MessagePack_encoded *msg_pack_enc;
 
-	if (sizeof(*inPack) > buflen)
+	if (sizeof(*msg_pack_enc) > buflen)
 		return -ENOMEM;
 
-	inPack = (ODID_MessagePack_encoded *) pack;
-	if (inPack->MsgPackSize != 5)
+	msg_pack_enc = (ODID_MessagePack_encoded *) pack;
+	if (decodeMessagePack(UAS_Data, msg_pack_enc) != ODID_SUCCESS)
 		return -1;
-
-	decodeBasicIDMessage(&UAS_Data->BasicID, (void *)&inPack->Messages[0]);
-	decodeLocationMessage(&UAS_Data->Location, (void *)&inPack->Messages[1]);
-	decodeAuthMessage(&UAS_Data->Auth[0], (void *)&inPack->Messages[2]);
-	decodeSelfIDMessage(&UAS_Data->SelfID, (void *)&inPack->Messages[3]);
-	decodeSystemMessage(&UAS_Data->System, (void *)&inPack->Messages[4]);
 
 	return 0;
 }
@@ -333,7 +328,7 @@ int odid_wifi_receive_message_pack_nan_action_frame(ODID_UAS_Data *UAS_Data,
 	si = (struct ODID_service_info *)(buf + len);
 	len += sizeof(*si);
 
-	ret = odid_message_decode_pack(UAS_Data, buf + len, buf_size - len);
+	ret = odid_message_process_pack(UAS_Data, buf + len, buf_size - len);
 	if (ret < 0) {
 		return -1;
 	}
